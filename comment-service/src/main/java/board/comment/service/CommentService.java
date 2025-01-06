@@ -1,7 +1,9 @@
 package board.comment.service;
 
 import board.Snowflake;
+import board.comment.entity.ArticleCommentCount;
 import board.comment.entity.Comment;
+import board.comment.repository.ArticleCommentCountJpaRepository;
 import board.comment.repository.CommentJpaRepository;
 import board.comment.service.request.CommentRequest;
 import board.comment.service.response.CommentPageResponse;
@@ -20,6 +22,7 @@ public class CommentService {
 
     private final Snowflake snowflake = new Snowflake();
     private final CommentJpaRepository commentJpaRepository;
+    private final ArticleCommentCountJpaRepository articleCommentCountJpaRepository;
 
     @Transactional
     public CommentResponse create(CommentRequest.Create request) {
@@ -33,6 +36,12 @@ public class CommentService {
                 request.getWriterId()
         );
         commentJpaRepository.save(comment);
+
+        int result = articleCommentCountJpaRepository.increase(request.getArticleId());
+        if (result == 0) {
+            ArticleCommentCount articleCommentCount = ArticleCommentCount.init(request.getArticleId(), 1L);
+            articleCommentCountJpaRepository.save(articleCommentCount);
+        }
 
         return CommentResponse.from(comment);
     }
@@ -73,6 +82,7 @@ public class CommentService {
 
     private void delete(Comment comment) {
         commentJpaRepository.delete(comment);
+        articleCommentCountJpaRepository.decrease(comment.getArticleId());
         // 재귀적 삭제
         if (!comment.isRoot()) {
             commentJpaRepository.findById(comment.getParentCommentId())
@@ -99,5 +109,11 @@ public class CommentService {
         return comments.stream()
                 .map(CommentResponse::from)
                 .toList();
+    }
+
+    public Long count(Long articleId) {
+        return articleCommentCountJpaRepository.findById(articleId)
+                .map(ArticleCommentCount::getCommentCount)
+                .orElse(0L);
     }
 }
