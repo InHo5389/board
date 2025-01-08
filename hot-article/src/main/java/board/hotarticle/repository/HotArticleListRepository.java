@@ -37,6 +37,11 @@ public class HotArticleListRepository {
         });
     }
 
+    // 게시글이 삭제되면 인기글도 삭제 처리
+    public void remove(Long articleId, LocalDateTime time) {
+        redisTemplate.opsForZSet().remove(generateKey(time), String.valueOf(articleId));
+    }
+
     private String generateKey(LocalDateTime time) {
         return generateKey(TIME_FORMATTER.format(time));
     }
