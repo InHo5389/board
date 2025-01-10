@@ -1,4 +1,4 @@
-package outboxmessagerelay;
+package board.outboxmessagerelay;
 
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -16,15 +16,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 
 @EnableAsync      // 트랜잭션 끝나면은 카프카에 대한 이벤트 전송을 비동기로 처리
 @Configuration
 @EnableScheduling // 전송되지 않은 이벤트들을 주기적으로 가져와서 폴링해서 카프카로 보내기 위함
-@ComponentScan("outboxmessagerelay")
+@ComponentScan("board.outboxmessagerelay")
 public class MessageRelayConfig {
 
-    @Value("${srping.kafka.bootstrap-servers}")
+    @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
     // KafkaTemplate - 카프카로 프로듀서 애플리케이션들이 이벤트를
@@ -46,7 +45,7 @@ public class MessageRelayConfig {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(20);
         executor.setMaxPoolSize(50);
-        executor.setQueueCapacity(1000);
+        executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("mr-pub-event-");
         return executor;
     }

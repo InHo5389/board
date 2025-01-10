@@ -6,15 +6,20 @@ import board.like.entity.ArticleLikeCount;
 import board.like.repository.ArticleLikeCountJpaRepository;
 import board.like.repository.ArticleLikeJpaRepository;
 import board.like.service.response.ArticleLikeResponse;
+import event.EventType;
+import event.payload.ArticleLikedEventPayload;
+import event.payload.ArticleUnlikedEventPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import board.outboxmessagerelay.OutboxEventPublisher;
 
 @Service
 @RequiredArgsConstructor
 public class ArticleLikeService {
 
     private final Snowflake snowflake = new Snowflake();
+    private final OutboxEventPublisher outboxEventPublisher;
     private final ArticleLikeJpaRepository articleLikeJpaRepository;
     private final ArticleLikeCountJpaRepository articleLikeCountJpaRepository;
 
@@ -35,14 +40,26 @@ public class ArticleLikeService {
                 userId
         );
         articleLikeJpaRepository.save(articleLike);
-
         int result = articleLikeCountJpaRepository.increase(articleId);
+
         if (result == 0) {
             // 최초 요청 시에는 update 되는 레코드가 없으므로 1로 초기화한다.
             // 트래픽이 순식간에 몰릴수 있는 상황에서는 유실될 수 있어서 게시글 생성 시점에 따라 미리 0으로 초기화 해야함
             ArticleLikeCount articleLikeCount = ArticleLikeCount.init(articleId, 1L);
             articleLikeCountJpaRepository.save(articleLikeCount);
         }
+
+        outboxEventPublisher.publish(
+                EventType.ARTICLE_LIKED,
+                ArticleLikedEventPayload.builder()
+                        .articleLikedId(articleLike.getArticleId())
+                        .articleId(articleLike.getArticleId())
+                        .userId(articleLike.getUserId())
+                        .createdAt(articleLike.getCreatedAt())
+                        .articleLikeCount(count(articleLike.getArticleId()))
+                        .build(),
+                articleLike.getArticleId()
+        );
     }
 
     @Transactional
@@ -51,6 +68,18 @@ public class ArticleLikeService {
                 .ifPresent(articleLike -> {
                     articleLikeJpaRepository.delete(articleLike);
                     articleLikeCountJpaRepository.decrease(articleId);
+
+                    outboxEventPublisher.publish(
+                            EventType.ARTICLE_UNLIKED,
+                            ArticleUnlikedEventPayload.builder()
+                                    .articleLikedId(articleLike.getArticleId())
+                                    .articleId(articleLike.getArticleId())
+                                    .userId(articleLike.getUserId())
+                                    .createdAt(articleLike.getCreatedAt())
+                                    .articleLikeCount(count(articleLike.getArticleId()))
+                                    .build(),
+                            articleLike.getArticleId()
+                    );
                 });
     }
 
@@ -70,15 +99,37 @@ public class ArticleLikeService {
                 .orElseGet(() -> ArticleLikeCount.init(articleId, 0L));
         articleLikeCount.increase();
         articleLikeCountJpaRepository.save(articleLikeCount);
+
+        outboxEventPublisher.publish(
+                EventType.ARTICLE_LIKED,
+                ArticleLikedEventPayload.builder()
+                        .articleLikedId(articleLike.getArticleId())
+                        .articleId(articleLike.getArticleId())
+                        .userId(articleLike.getUserId())
+                        .createdAt(articleLike.getCreatedAt())
+                        .articleLikeCount(count(articleLike.getArticleId()))
+                        .build(),
+                articleLike.getArticleId());
     }
 
     @Transactional
     public void unLikePessimisticLock2(Long articleId, Long userId) {
         articleLikeJpaRepository.findByArticleIdAndUserId(articleId, userId)
-                .ifPresent(entity -> {
-                    articleLikeJpaRepository.delete(entity);
-                    ArticleLikeCount articleLikeCount = articleLikeCountJpaRepository.findLockedByArticleId(articleId).orElseThrow();
-                    articleLikeCount.decrease();
+                .ifPresent(articleLike -> {
+                    articleLikeJpaRepository.delete(articleLike);
+                    articleLikeCountJpaRepository.decrease(articleId);
+
+                    outboxEventPublisher.publish(
+                            EventType.ARTICLE_UNLIKED,
+                            ArticleUnlikedEventPayload.builder()
+                                    .articleLikedId(articleLike.getArticleId())
+                                    .articleId(articleLike.getArticleId())
+                                    .userId(articleLike.getUserId())
+                                    .createdAt(articleLike.getCreatedAt())
+                                    .articleLikeCount(count(articleLike.getArticleId()))
+                                    .build(),
+                            articleLike.getArticleId()
+                    );
                 });
     }
 
@@ -108,5 +159,11 @@ public class ArticleLikeService {
                     ArticleLikeCount articleLikeCount = articleLikeCountJpaRepository.findById(articleId).orElseThrow();
                     articleLikeCount.decrease();
                 });
+    }
+
+    public Long count(Long articleId) {
+        return articleLikeCountJpaRepository.findById(articleId)
+                .map(ArticleLikeCount::getLikeCount)
+                .orElse(0L);
     }
 }

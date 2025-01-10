@@ -1,7 +1,8 @@
-package outboxmessagerelay;
+package board.outboxmessagerelay;
 
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.StringRedisConnection;
 import org.springframework.data.redis.core.RedisCallback;
@@ -34,7 +35,7 @@ public class MessageRelayCoordinator {
     private final int PING_INTERVAL_SECONDS = 3;
     private final int PING_FAILURE_THRESHOLD = 3;
 
-    public AssignedShard assignedShards(){
+    public AssignedShard assignShards(){
         return AssignedShard.of(APP_ID,findAppIds(),MessageRelayConstants.SHARD_COUNT);
     }
 
@@ -44,12 +45,13 @@ public class MessageRelayCoordinator {
                 .toList();
     }
 
-    @Scheduled(fixedDelay = PING_INTERVAL_SECONDS,timeUnit = TimeUnit.SECONDS)
-    public void ping(){
-        redisTemplate.executePipelined((RedisCallback<?>) action->{
+    @Scheduled(fixedDelay = PING_INTERVAL_SECONDS, timeUnit = TimeUnit.SECONDS)
+    public void ping() {
+        redisTemplate.executePipelined((RedisCallback<?>) action -> {
             StringRedisConnection conn = (StringRedisConnection) action;
             String key = generateKey();
-            conn.zAdd(key, Instant.now().toEpochMilli(),APP_ID);
+
+            conn.zAdd(key, Instant.now().toEpochMilli(), APP_ID);
             conn.zRemRangeByScore(
                     key,
                     Double.NEGATIVE_INFINITY,

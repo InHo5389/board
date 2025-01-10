@@ -16,7 +16,6 @@ public class ArticleLikeCount {
     private Long articleId;
     private Long likeCount;
 
-    @Version
     private Long version;
 
     public static ArticleLikeCount init(Long articleId, Long likeCount) {

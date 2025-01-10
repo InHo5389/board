@@ -21,7 +21,7 @@ public class HotArticleListRepository {
     private final StringRedisTemplate redisTemplate;
 
     // hot-article:list:{yyyyMMdd}
-    private static final String KEY_FORMAT = "hot-article:list:%s";
+    private static final String KEY_FORMAT = "hot-article::list::%s";
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 

@@ -1,4 +1,4 @@
-package outboxmessagerelay;
+package board.outboxmessagerelay;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,10 +54,10 @@ public class MessageRelay {
                     String.valueOf(outbox.getShardKey()),
                     outbox.getPayload()
             ).get(1, TimeUnit.SECONDS);
+            outboxRepository.delete(outbox);
         } catch (Exception e) {
             log.error("[MessageRelay.publishEvent] outbox={}", outbox, e);
         }
-        outboxRepository.delete(outbox);
     }
 
     // 10초 동안 전송 안 된 이벤트들을 주기적으로 폴링 보냄
@@ -73,18 +73,22 @@ public class MessageRelay {
             scheduler = "messageRelayPublishPendingEventExecutor"
     )
     public void publishPendingEvent(){
-        AssignedShard assignedShard = messageRelayCoordinator.assignedShards();
-        log.info("[MessageRelay.publishPendingEvent] assignedShard size={}", assignedShard);
-        for (Long shard : assignedShard.getShards()) {
-            List<Outbox> outboxes = outboxRepository.findAllBySharedKeyAndCreatedAtLessThanEqualOrderByCreatedAtAsc(
-                    shard,
-                    LocalDateTime.now().minusSeconds(10),
-                    Pageable.ofSize(100)
-            );
+        try{
+            AssignedShard assignedShard = messageRelayCoordinator.assignShards();
+            log.info("[MessageRelay.publishPendingEvent] assignedShard size={}", assignedShard.getShards().size());
+            for (Long shard : assignedShard.getShards()) {
+                List<Outbox> outboxes = outboxRepository.findAllByShardKeyAndCreatedAtLessThanEqualOrderByCreatedAtAsc(
+                        shard,
+                        LocalDateTime.now().minusSeconds(10),
+                        Pageable.ofSize(100)
+                );
 
-            for (Outbox outbox : outboxes) {
-                publishEvent(outbox);
+                for (Outbox outbox : outboxes) {
+                    publishEvent(outbox);
+                }
             }
+        } catch (Exception e) {
+            log.error("[MessageRelay.publishPendingEvent] Error during publishing pending events", e);
         }
     }
 }

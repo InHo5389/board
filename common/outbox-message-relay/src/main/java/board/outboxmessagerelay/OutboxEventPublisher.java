@@ -1,4 +1,4 @@
-package outboxmessagerelay;
+package board.outboxmessagerelay;
 
 import board.Snowflake;
 import event.Event;

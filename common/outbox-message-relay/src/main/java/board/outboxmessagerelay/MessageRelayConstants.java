@@ -1,4 +1,4 @@
-package outboxmessagerelay;
+package board.outboxmessagerelay;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;

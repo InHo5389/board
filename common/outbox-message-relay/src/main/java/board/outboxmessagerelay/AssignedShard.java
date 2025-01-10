@@ -1,4 +1,4 @@
-package outboxmessagerelay;
+package board.outboxmessagerelay;
 
 import lombok.Getter;
 
@@ -37,7 +37,7 @@ public class AssignedShard {
 
         // Start와 End 사이에 있는 범위가 이 애플리케이션이 할당된 Shard
         long start = appIndex * shardCount / appIds.size();
-        long end = (appIndex * 1) * shardCount / appIds.size() - 1;
+        long end = (appIndex + 1) * shardCount / appIds.size() - 1;
 
         return LongStream.rangeClosed(start,end).boxed().toList();
     }
