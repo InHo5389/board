@@ -42,6 +42,11 @@ public class ArticleReadService {
     /**
      * 게시글 데이터를 조회하기 위한 메서드
      * 데이터를 꺼내서 없으면 람다 호출
+     *
+     * 조회하는 시점에 실시간으로 뷰 클라이언트 통해서 조회수를 가져오는데
+     * 이것도 트래픽이 많으면 조회수 서비스로 모든 부하가 전파되는 문제점을 가짐
+     *
+     * 모든 부하가 전파되지는 않도록 캐시 구현
      */
     public ArticleReadResponse read(Long articleId) {
         ArticleQueryModel articleQueryModel = articleQueryModelRepository.read(articleId)
